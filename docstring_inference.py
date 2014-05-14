@@ -7,20 +7,15 @@ from docutils.core import publish_doctree
 def register(linter):
     pass
 
-def parse_node(text):
-    if text == "None":
-        clazz = "NoneType"
-    else:
-        clazz = text
-
-    return nodes.Class(clazz, 'docstring').instanciate_class()
+def parse_node(node, context, text):
+    scope, items = node.scope().scope_lookup(node.scope(), text)
+    return items[0].instanciate_class()
 
 def infer_from_docstring(node, context=None):
-    for infer in node.func.infer(context):
-        
+    for infer in node.func.infer(context.clone()):
         docstring = infer.doc
         if docstring is None:
-            return
+            break
         
     
         doctree = etree.fromstring(publish_doctree(docstring).asdom().toxml())
@@ -34,22 +29,14 @@ def infer_from_docstring(node, context=None):
                 field_body = field.findall("field_body")[0].findall("paragraph")[0].text
             
                 if field_name.startswith("rtype"):
-                    name = nodes.Name()
-                    name.name = field_body
-                    ret_node = parse_node(field_body)
+                    ret_node = parse_node(node, context, field_body)
                     return iter([ret_node])
-        # found nothing
-        
-def infer_enum(node, context=None):
-    class_node = nodes.Class("ABC", 'docstring')
-    return iter([class_node.instanciate_class()])
-
+    # found nothing
+    raise UseInferenceDefault()
 
 def wrap_exception(node, context=None):
-    try:
-        return infer_from_docstring(node, context)
-    except InferenceError, UseInferenceDefault:
-        return None
-
-MANAGER.register_transform(nodes.CallFunc, inference_tip(infer_from_docstring))
+    node._explicit_inference = infer_from_docstring
+    return node
+        
+MANAGER.register_transform(nodes.CallFunc, wrap_exception)
 
