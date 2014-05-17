@@ -48,7 +48,7 @@ def infer_enum(node, context=None):
 def wrap_exception(node, context=None):
     try:
         return infer_from_docstring(node, context)
-    except InferenceError, UseInferenceDefault:
+    except (InferenceError, UseInferenceDefault):
         return None
 
 MANAGER.register_transform(nodes.CallFunc, inference_tip(infer_from_docstring))
