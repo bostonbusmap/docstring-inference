@@ -35,45 +35,120 @@ def as_class(string):
     clazz.parent = module
     return clazz.instanciate_class()
 
-def as_type(x):
-    return x
+class Class:
+    def __init__(self, name):
+        self.name = name
 
-def as_tuple(one, two):
-    return (one, two)
+    def __str__(self):
+        return self.name
 
-def as_string_type(x):
-    # TODO: make sense of this
-    return x
+class Function:
+    def __init__(self, input, output):
+        self.input = input
+        self.output = output
+
+    def __str__(self):
+        return str(self.input) + " -> " + str(self.output)
+
+class Type:
+    def __init__(self, type):
+        self.type = type
+
+    def __str__(self):
+        return self.type
+
+class List:
+    def __init__(self, type):
+        self.type = type
+
+    def __str__(self):
+        return "list[" + str(self.type) + "]"
+
+class StringType:
+    def __init__(self, type):
+        self.type = type
+
+    def __str__(self):
+        # TODO
+        return self.type
+
+class Tuple:
+    def __init__(self, items):
+        self.items = items
+
+    def __str__(self):
+        return "(" + ", ".join(str(s) for s in self.items) + ")"
+
+class Dict:
+    def __init__(self, first, second):
+        self.first = first
+        self.second = second
+
+    def __str__(self):
+        return "dict[" + str(self.first) + ", " + str(self.second) + "]"
+
+class Or:
+    def __init__(self, items):
+        self.items = items
+
+    def __str__(self):
+        return " | ".join(str(s) for s in self.items)
+
+class BoundedType:
+    def __init__(self, type, bound):
+        self.type = type
+        self.bound = bound
+
+    def __str__(self):
+        return str(self.type) + " <= " + str(self.bound)
+
+class ParameterizedType:
+    def __init__(self, type, parameters):
+        self.type = type
+        self.parameters = parameters
+
+    def __str__(self):
+        return str(self.type) + "[" + ", ".join(str(s) for s in self.parameters) + "]"
 
 def make_grammar():
     # TODO: tuple with one value
     # TODO: make sense of the return values
     x = parsley.makeGrammar("""
 clazzChar = letterOrDigit | '.'
-clazz = <clazzChar+>:x -> x
+clazz = <clazzChar+>:x -> Class(x)
 
-item = (:x ?(x in 'TUVWXYZ') -> as_type(x)
- | 'None' -> as_type('NoneType')
- | 'unknown' -> as_type('unknown')
- | ('string' | 'bytestring' | 'bytes' | 'unicode'):x -> as_string_type(x)
+# a type or a class
+item = (:x ?(x in 'TUVWXYZ') -> Type(x)
+ | 'None' -> Type('NoneType')
+ | 'unknown' -> Type('unknown')
+ | ('string' | 'bytestring' | 'bytes' | 'unicode'):x -> StringType(x)
  | clazz:x -> x)
 
 commaRule = ',' ws rule:rule ws -> rule
 
-rule = ('(' ws rule:firstRule ws commaRule*:ruleList ')' -> [firstRule] + ruleList
-  | 'list[' ws item:x ws ']' -> x
-  | 'dict[' ws item:first ws ',' ws item:second ws ']' -> (first, second)
-  | (item:one
-     (ws '|' ws rule:two -> as_tuple(as_class(one), two)
-      | ws '<=' ws item:two -> as_tuple(as_class(one), two)
-      | ws '[' ws item:two ws ']' -> as_tuple(as_class(one), two)
-      | -> as_class(one))))
+orRule = '|' ws rule:rule ws -> rule
 
-expr = rule:arg (ws '->' ws rule:ret -> (arg, ret)
+rule = ('(' ws rule:firstRule ws commaRule*:ruleList ')' -> Tuple([firstRule] + ruleList)
+  | 'list[' ws rule:x ws ']' -> List(x)
+  | 'dict[' ws rule:first ws ',' ws rule:second ws ']' -> Dict(first, second)
+  | (item:one
+     (ws orRule+:two -> Or([one] + two)
+      | ws '<=' ws rule:two -> BoundedType(one, two)
+      | ws '[' ws rule:two ws commaRule*:ruleList ']' -> ParameterizedType(one, [two] + ruleList)
+      | -> one)))
+
+expr = rule:arg (ws '->' ws rule:ret -> Function(arg, ret)
   | -> arg)
-    """, {"as_class": as_class,
-          "as_tuple": as_tuple,
-          "as_type": as_type})
+    """, {"Class": Class,
+          "Type": Type,
+          "BoundedType": BoundedType,
+          "Tuple" : Tuple,
+          "StringType" : StringType,
+          "List" : List,
+          "Dict" : Dict,
+          "Function" : Function,
+          "ParameterizedType" : ParameterizedType,
+          "Or" : Or})
     return x
     
 
@@ -90,3 +165,4 @@ if __name__ == "__main__":
     print(x("T <= Foo").expr())
     print(x("Foo[T]").expr())
     print(x("(Foo, Bar) -> Baz").expr())
+    print(x("Foo | Bar | Baaz").expr())
