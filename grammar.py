@@ -41,6 +41,10 @@ def as_type(x):
 def as_tuple(one, two):
     return (one, two)
 
+def as_string_type(x):
+    # TODO: make sense of this
+    return x
+
 def make_grammar():
     # TODO: tuple with one value
     # TODO: make sense of the return values
@@ -49,6 +53,9 @@ clazzChar = letterOrDigit | '.'
 clazz = <clazzChar+>:x -> x
 
 item = (:x ?(x in 'TUVWXYZ') -> as_type(x)
+ | 'None' -> as_type('NoneType')
+ | 'unknown' -> as_type('unknown')
+ | ('string' | 'bytestring' | 'bytes' | 'unicode'):x -> as_string_type(x)
  | clazz:x -> x)
 
 commaRule = ',' ws rule:rule ws -> rule
