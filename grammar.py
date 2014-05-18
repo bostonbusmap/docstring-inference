@@ -11,29 +11,26 @@ Foo[T]             # Foo parameterized with T
 """
 
 import parsley
-from astroid import nodes
+from astroid import nodes, UseInferenceDefault, MANAGER
 
-def parse_node(text):
-    if text == "None":
-        clazz = "NoneType"
+def parse_node(node, context, text):
+    grammar = make_grammar()(text)
+
+    tree = grammar.expr()
+    infer_node = tree.infer(node)
+    return infer_node
+
+def instantiate_class(node, class_name, count=10):
+    if count == 0:
+        raise UseInferenceDefault()
+    if isinstance(node, nodes.From):
+        from_module = node.do_import_module(node.modname)
+        scope, items = from_module.scope().scope_lookup(from_module.scope(), class_name)
+        if items:
+            return instantiate_class(items[0], class_name, count - 1)
+        raise UseInferenceDefault()
     else:
-        clazz = text
-
-    return nodes.Class(clazz, 'docstring').instanciate_class()
-
-def as_class(string):
-    last_dot_index = string.rfind(".")
-    if last_dot_index != -1:
-        module_name = string[:last_dot_index]
-        class_name = string[last_dot_index + 1:]
-    else:
-        module_name = ""
-        class_name = string
-    
-    clazz = nodes.Class(class_name, 'docstring')
-    module = nodes.Module(module_name, 'docstring')
-    clazz.parent = module
-    return clazz.instanciate_class()
+        return node.instanciate_class()
 
 class Class:
     def __init__(self, name):
@@ -41,6 +38,31 @@ class Class:
 
     def __str__(self):
         return self.name
+
+    def infer(self, node):
+        # TODO: I don't really know if module handling is correct here
+        # but it also looks like astroid doesn't fully know about imported
+        
+        string = self.name
+        last_dot_index = string.rfind(".")
+        if last_dot_index != -1:
+            module_name = string[:last_dot_index]
+            class_name = string[last_dot_index + 1:]
+        else:
+            module_name = ""
+            class_name = string
+        scope, items = node.scope().scope_lookup(node.scope(), string)
+
+        if items:
+            return instantiate_class(items[0], class_name)
+
+        # TODO: I probably shouldn't be using the cache this way
+        if module_name in MANAGER.astroid_cache:
+            module = MANAGER.astroid_cache[module_name]
+            return instantiate_class(module, class_name)
+        
+        raise UseInferenceDefault()
+
 
 class Function:
     def __init__(self, input, output):
@@ -50,6 +72,15 @@ class Function:
     def __str__(self):
         return str(self.input) + " -> " + str(self.output)
 
+    def infer(self, node):
+        lam = nodes.Lambda()
+        if isinstance(self.input, Tuple):
+            for item in self.input.items:
+                lam.args.append(item.infer(node))
+        else:
+            lam.args.append(item.infer(node))
+
+        return lam
 class Type:
     def __init__(self, type):
         self.type = type
