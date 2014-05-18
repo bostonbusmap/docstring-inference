@@ -3,6 +3,7 @@ from astroid.builder import AstroidBuilder
 
 import xml.etree.ElementTree as etree
 from docutils.core import publish_doctree
+from grammar import parse_node
 
 def register(linter):
     pass
@@ -18,11 +19,19 @@ def infer_rtype(node, context=None):
         field_lists = doctree.findall(".//field_list")
         fields = [f for field_list in field_lists
                   for f in field_list.findall('field')]
-
         if fields:
             for field in fields:
-                field_name = field.findall("field_name")[0].text
-                field_body = field.findall("field_body")[0].findall("paragraph")[0].text
+                field_names = field.findall("field_name")
+                field_bodies = field.findall("field_body")
+                if not field_names:
+                    break
+                if not field_bodies:
+                    break
+                field_name = field_names[0].text
+                paragraphs = field_bodies[0].findall("paragraph")
+                if not paragraphs:
+                    break
+                field_body = paragraphs[0].text
             
                 if field_name.startswith("rtype"):
                     ret_node = parse_node(node, context, field_body)
