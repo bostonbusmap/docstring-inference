@@ -9,7 +9,13 @@ def register(linter):
     pass
 
 def infer_rtype(node, context=None):
-    for infer in node.func.infer(context.clone()):
+    if context is not None:
+        context_copy = context.clone()
+    else:
+        context_copy = None
+    for infer in node.func.infer(context_copy):
+        if infer is YES:
+            raise UseInferenceDefault()
         docstring = infer.doc
         if docstring is None:
             break
@@ -49,7 +55,6 @@ def infer_arg(node, context=None):
     docstring = func.doc
     if docstring is None:
         raise UseInferenceDefault()
-
     
     doctree = etree.fromstring(publish_doctree(docstring).asdom().toxml())
     field_lists = doctree.findall(".//field_list")
@@ -66,7 +71,7 @@ def infer_arg(node, context=None):
                 return iter([ret_node])
             
     raise UseInferenceDefault()
-        
+
         
 MANAGER.register_transform(nodes.CallFunc, inference_tip(infer_rtype))
 MANAGER.register_transform(nodes.AssName, inference_tip(infer_arg))
