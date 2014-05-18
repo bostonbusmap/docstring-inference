@@ -7,14 +7,6 @@ from docutils.core import publish_doctree
 def register(linter):
     pass
 
-def parse_node(text):
-    if text == "None":
-        clazz = "NoneType"
-    else:
-        clazz = text
-
-    return nodes.Class(clazz, 'docstring').instanciate_class()
-
 def infer_from_docstring(node, context=None):
     for infer in node.func.infer(context):
         
