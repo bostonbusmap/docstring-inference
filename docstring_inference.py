@@ -40,8 +40,8 @@ def infer_rtype(node, context=None):
                 field_body = paragraphs[0].text
             
                 if field_name.startswith("rtype"):
-                    ret_node = parse_node(node, context, field_body)
-                    return iter([ret_node])
+                    return parse_node(node, context, field_body)
+
     # found nothing
     raise UseInferenceDefault()
 
@@ -67,8 +67,7 @@ def infer_arg(node, context=None):
             field_body = field.findall("field_body")[0].findall("paragraph")[0].text
             
             if field_name == "type %s" % node.name:
-                ret_node = parse_node(node, context, field_body)
-                return iter([ret_node])
+                return parse_node(node, context, field_body)
             
     raise UseInferenceDefault()
 

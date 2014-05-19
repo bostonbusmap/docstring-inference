@@ -18,7 +18,10 @@ def parse_node(node, context, text):
 
     tree = grammar.expr()
     infer_node = tree.infer(node)
-    return infer_node
+    if type(infer_node) == list:
+        return iter(infer_node)
+    else:
+        return iter([infer_node])
 
 def instantiate_class(node, class_name, count=10):
     if count == 0:
@@ -103,6 +106,10 @@ class Type:
     def __str__(self):
         return self.type
 
+    def infer(self, node):
+        # TODO: need a fancier type inference system
+        raise UseInferenceDefault()
+
 class List:
     def __init__(self, type):
         self.type = type
@@ -110,13 +117,40 @@ class List:
     def __str__(self):
         return "list[" + str(self.type) + "]"
 
+    def infer(self, node):
+        
+        return nodes.List()
+
 class StringType:
     def __init__(self, type):
         self.type = type
 
     def __str__(self):
-        # TODO
+        # TODO: differentiate types based on python 2/3
         return self.type
+
+    def infer(self, node):
+        import sys
+        if sys.version_info() >= (3,0):
+            if self.type == "string" or self.type == "bytestring":
+                return Or([Class("str"), Class("unicode")]).infer(node)
+            elif self.type == "bytes":
+                return Class("str").infer(node)
+            elif self.type == "unicode":
+                return Class("unicode").infer(node)
+            else:
+                # Shouldn't happen, all cases should have been handled
+                raise Exception("Inference error")
+        else:
+            if self.type == "string":
+                return Class("str").infer(node)
+            elif self.type == "bytestring" or self.type == "bytes":
+                return Class("bytes").infer(node)
+            elif self.type == "unicode":
+                return Class("str").infer(node)
+            else:
+                # Shouldn't happen, all cases should have been handled
+                raise Exception("Inference error")
 
 class Tuple:
     def __init__(self, items):
@@ -124,6 +158,10 @@ class Tuple:
 
     def __str__(self):
         return "(" + ", ".join(str(s) for s in self.items) + ")"
+
+    def infer(self, node):
+        elts = [item.infer(node) for item in self.items]
+        return nodes.Tuple(elts=elts)
 
 class Dict:
     def __init__(self, first, second):
@@ -133,12 +171,19 @@ class Dict:
     def __str__(self):
         return "dict[" + str(self.first) + ", " + str(self.second) + "]"
 
+    def infer(self, node):
+        return nodes.Dict()
+
 class Or:
     def __init__(self, items):
         self.items = items
 
     def __str__(self):
         return " | ".join(str(s) for s in self.items)
+
+    def infer(self, node):
+        # TODO: Currently this is more of an And than an Or
+        return [item.infer(node) for item in self.items]
 
 class BoundedType:
     def __init__(self, type, bound):
@@ -148,6 +193,10 @@ class BoundedType:
     def __str__(self):
         return str(self.type) + " <= " + str(self.bound)
 
+    def infer(self, node):
+        # TODO: figure out how to implement this
+        return Type(self.type).infer(node)
+
 class ParameterizedType:
     def __init__(self, type, parameters):
         self.type = type
@@ -155,6 +204,10 @@ class ParameterizedType:
 
     def __str__(self):
         return str(self.type) + "[" + ", ".join(str(s) for s in self.parameters) + "]"
+
+    def infer(self, node):
+        # TODO: figure out how to implement this
+        return Type(self.type).infer(node)
 
 def make_grammar():
     # TODO: tuple with one value
