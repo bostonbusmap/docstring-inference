@@ -74,11 +74,26 @@ class Function:
 
     def infer(self, node):
         lam = nodes.Lambda()
+        # not sure why lam.args starts out as a list()
+        lam.args = nodes.Arguments()
+        lam.args.args = []
+        lam.args.defaults = []
+        lam.args.kwonlyargs = []
+        lam.args.kw_defaults = []
+        lam.body = self.output.infer(node)
+
+        lam.doc = ""
         if isinstance(self.input, Tuple):
             for item in self.input.items:
-                lam.args.append(item.infer(node))
+                assname = nodes.AssName()
+                assname.name = "__unused"
+                lam.args.args.append(assname)
+                lam.args.defaults.append(item.infer(node))
         else:
-            lam.args.append(item.infer(node))
+            assname = nodes.AssName()
+            assname.name = "__unused"
+            lam.args.args.append(assname)
+            lam.args.defaults.append(self.input.infer(node))
 
         return lam
 class Type:
