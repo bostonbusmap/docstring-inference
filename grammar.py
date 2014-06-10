@@ -131,7 +131,7 @@ class StringType:
 
     def infer(self, node):
         import sys
-        if sys.version_info() >= (3,0):
+        if sys.version_info >= (3,0):
             if self.type == "string" or self.type == "bytestring":
                 return Or([Class("str"), Class("unicode")]).infer(node)
             elif self.type == "bytes":
